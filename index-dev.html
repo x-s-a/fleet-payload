@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="id">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title id="appTitle">Fleet Monitoring Dashboard</title>
+		<link rel="icon" type="image/svg+xml" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><text x="50%" y="55%" font-size="60" text-anchor="middle" dominant-baseline="middle">📊</text></svg>' />
+		<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+		<!-- jsPDF for PDF generation and sharing -->
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+		<!-- FontAwesome Icons -->
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" />
+		<!-- PDF.js untuk PDF text extraction -->
+		<script type="module">
+			import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.149/pdf.min.mjs";
+			pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.149/pdf.worker.min.mjs";
+			window.pdfjsLib = pdfjsLib;
+		</script>
+		<link rel="stylesheet" href="/style/dashboard.css" />
+	</head>
+	<body class="bg-gray-100 font-sans">
+		<!-- Development Mode Indicator -->
+		<div id="devIndicator" class="dev-indicator"><i class="fas fa-code"></i> DEV MODE</div>
+
+		<!-- Hamburger Menu for Mobile -->
+		<button id="menu-toggle" class="lg:hidden fixed top-4 left-4 z-30 bg-white p-2 rounded-md shadow-md">
+			<i class="fas fa-bars text-gray-700"></i>
+		</button>
+
+		<div class="flex min-h-screen">
+			<!-- Sidebar -->
+			<aside
+				id="sidebar"
+				class="w-80 bg-gradient-to-b from-gray-50 to-white shadow-xl p-4 fixed h-full z-20 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out flex flex-col border-r border-gray-200 overflow-y-auto">
+				<!-- Sidebar Header -->
+				<div class="flex items-center justify-between mb-6 px-2 py-3 bg-white rounded-lg shadow-sm border border-gray-100">
+					<div class="flex items-center sidebar-content">
+						<div class="p-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl shadow-md">
+							<i class="fas fa-tachometer-alt fa-lg"></i>
+						</div>
+						<div class="ml-3">
+							<h1 class="text-xl font-bold text-gray-800">Dashboard</h1>
+							<p class="text-xs text-gray-500">Fleet Control</p>
+						</div>
+					</div>
+					<button id="sidebar-toggle-desktop" class="hidden lg:block text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-md hover:bg-gray-100">
+						<i class="fas fa-chevron-left"></i>
+					</button>
+				</div>
+
+				<!-- Primary Actions -->
+				<div class="flex-1 space-y-4 mb-6 sidebar-content">
+					<div class="px-2">
+						<h3 class="text-xs uppercase text-gray-400 font-semibold tracking-wider mb-3">Quick Actions</h3>
+						<div class="space-y-2">
+							<button
+								type="button"
+								id="addDataBtn"
+								class="w-full flex items-center px-4 py-3 bg-white text-gray-700 border border-gray-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md group relative overflow-hidden">
+								<div class="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+								<i class="fas fa-folder-open w-6 text-center text-gray-400 group-hover:text-blue-600 transition-colors relative z-10"></i>
+								<span class="ml-3 relative z-10" data-text-key="importPDF">Import PDF</span>
+								<i class="fas fa-chevron-right ml-auto text-gray-300 group-hover:text-blue-500 transform group-hover:translate-x-1 transition-all duration-200 relative z-10"></i>
+							</button>
+							<button
+								type="button"
+								id="exportExcelBtn"
+								class="w-full flex items-center px-4 py-3 bg-white text-gray-700 border border-gray-200 hover:bg-green-50 hover:text-green-600 hover:border-green-300 rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md group relative overflow-hidden">
+								<div class="absolute inset-0 bg-gradient-to-r from-green-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+								<i class="fas fa-file-excel w-6 text-center text-gray-400 group-hover:text-green-600 transition-colors relative z-10"></i>
+								<span class="ml-3 relative z-10" data-text-key="exportExcel">Export Excel</span>
+								<i class="fas fa-chevron-right ml-auto text-gray-300 group-hover:text-green-500 transform group-hover:translate-x-1 transition-all duration-200 relative z-10"></i>
+							</button>
+							<button
+								type="button"
+								id="printBtn"
+								class="w-full flex items-center px-4 py-3 bg-white text-gray-700 border border-gray-200 hover:bg-purple-50 hover:text-purple-600 hover:border-purple-300 rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md group relative overflow-hidden no-print">
+								<div class="absolute inset-0 bg-gradient-to-r from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+								<i class="fas fa-print w-6 text-center text-gray-400 group-hover:text-purple-600 transition-colors relative z-10"></i>
+								<span class="ml-3 relative z-10" data-text-key="printReport">Print Report</span>
+								<i class="fas fa-chevron-right ml-auto text-gray-300 group-hover:text-purple-500 transform group-hover:translate-x-1 transition-all duration-200 relative z-10"></i>
+							</button>
+							<button
+								type="button"
+								id="shareDashboardBtn"
+								class="w-full flex items-center px-4 py-3 bg-white text-gray-700 border border-gray-200 hover:bg-orange-50 hover:text-orange-600 hover:border-orange-300 rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md group relative overflow-hidden">
+								<div class="absolute inset-0 bg-gradient-to-r from-orange-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+								<i class="fas fa-share-nodes w-6 text-center text-gray-400 group-hover:text-orange-600 transition-colors relative z-10"></i>
+								<span class="ml-3 relative z-10">Share Information</span>
+								<i class="fas fa-chevron-right ml-auto text-gray-300 group-hover:text-orange-500 transform group-hover:translate-x-1 transition-all duration-200 relative z-10"></i>
+							</button>
+						</div>
+					</div>
+
+					<!-- Filters Section (Collapsible) -->
+					<div class="px-2">
+						<button
+							id="filters-toggle"
+							class="w-full flex items-center justify-between px-4 py-3 text-left text-sm font-semibold text-gray-700 bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200 rounded-lg transition-all duration-200 border border-gray-200 shadow-sm">
+							<span class="flex items-center">
+								<i class="fas fa-filter mr-2 text-gray-500"></i>
+								Search & Filter
+							</span>
+							<i id="filters-chevron" class="fas fa-chevron-down transition-transform duration-200 text-gray-400"></i>
+						</button>
+						<div id="filters-content" class="mt-3 space-y-3 px-1">
+							<!-- Simple Search Section -->
+							<div class="bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+								<div class="relative">
+									<input
+										type="text"
+										id="searchInput"
+										placeholder="Masukkan kata kunci pencarian..."
+										class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-200 transition-all pl-10" />
+									<i class="fas fa-search absolute left-3 top-3 text-gray-400 text-sm pointer-events-none"></i>
+								</div>
+								<!-- Tips akan ditambahkan otomatis oleh JavaScript dari config.js -->
+							</div>
+							<div class="bg-white p-3 rounded-lg border border-gray-200 shadow-sm space-y-3">
+								<h4 class="text-xs font-semibold text-gray-600 mb-2">Equipment Filters</h4>
+								<div>
+									<label for="excavatorFilter" class="block text-xs font-medium text-gray-600 mb-1">Filter Excavator</label>
+									<select id="excavatorFilter" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-200 transition-all">
+										<option value=""></option>
+									</select>
+								</div>
+								<div>
+									<label for="hdFilter" class="block text-xs font-medium text-gray-600 mb-1">Filter Dump Truck</label>
+									<select id="hdFilter" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-200 transition-all">
+										<option value=""></option>
+									</select>
+								</div>
+								<div>
+									<label for="supervisorFilter" class="block text-xs font-medium text-gray-600 mb-1">Filter Supervisor</label>
+									<select id="supervisorFilter" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-200 transition-all">
+										<option value=""></option>
+									</select>
+								</div>
+								<div>
+									<label for="statusFilter" class="block text-xs font-medium text-gray-600 mb-1">Filter Status Payload</label>
+									<select id="statusFilter" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-200 transition-all">
+										<!-- Options will be populated dynamically from config.js -->
+									</select>
+								</div>
+								<button id="clearFiltersBtn" class="w-full flex items-center justify-center bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg font-medium transition-colors hover-scale shadow-sm">
+									<i class="fas fa-eraser mr-2"></i><span data-text-key="resetFilters">Reset Filters</span>
+								</button>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Collapsed State Icons (hidden by default) -->
+				<div class="collapsed-icons hidden flex flex-col items-center space-y-6 mt-6">
+					<!-- Import PDF Icon (Biru Muda) -->
+					<div class="group relative">
+						<div class="p-3 bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:scale-110">
+							<i class="fas fa-file-import text-xl"></i>
+						</div>
+						<div
+							class="absolute left-full ml-3 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white px-2 py-1 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-50"
+							data-text-key="importPDF">
+							Import PDF
+						</div>
+					</div>
+
+					<!-- Export Excel Icon (Hijau) -->
+					<div class="group relative">
+						<div class="p-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:scale-110">
+							<i class="fas fa-file-excel text-xl"></i>
+						</div>
+						<div
+							class="absolute left-full ml-3 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white px-2 py-1 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-50"
+							data-text-key="exportExcel">
+							Export Excel
+						</div>
+					</div>
+
+					<!-- Print Icon (Ungu) -->
+					<div class="group relative">
+						<div class="p-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:scale-110">
+							<i class="fas fa-print text-xl"></i>
+						</div>
+						<div
+							class="absolute left-full ml-3 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white px-2 py-1 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-50"
+							data-text-key="printReport">
+							Print Report
+						</div>
+					</div>
+
+					<!-- Share Icon (Orange) -->
+					<div class="group relative" id="shareDashboardIconBtn">
+						<div class="p-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:scale-110">
+							<i class="fas fa-share-nodes text-xl"></i>
+						</div>
+						<div class="absolute left-full ml-3 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white px-2 py-1 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-50">
+							Share Information
+						</div>
+					</div>
+				</div>
+
+				<!-- Dev/Footer Section -->
+				<div class="mt-auto pt-4 border-t border-gray-200 sidebar-content">
+					<div class="px-2">
+						<h4 class="text-xs uppercase text-gray-400 font-semibold tracking-wider mb-2 dev-only">Development Tools</h4>
+						<div class="space-y-2 dev-only">
+							<button
+								id="loadSampleBtn"
+								class="w-full flex items-center justify-center bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm text-sm transition transform hover:-translate-y-0.5 hover:shadow-lg"
+								title="Development Only - Load sample data">
+								<i class="fas fa-clipboard-list mr-2"></i> Load Sample
+							</button>
+							<button
+								id="clearDataBtn"
+								class="w-full flex items-center justify-center bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm text-sm transition transform hover:-translate-y-0.5 hover:shadow-lg"
+								title="Development Only - Clear all data">
+								<i class="fas fa-trash-alt mr-2"></i> Clear Data
+							</button>
+						</div>
+						<!-- App Info -->
+						<div class="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+							<div class="text-xs text-gray-500 text-center">
+								<span id="appNameSidebar" class="font-medium">Fleet Dashboard</span> <span id="appVersion" class="text-gray-400"></span>
+								<br />
+								<span id="appAuthor" class="text-gray-400">Made with ❤️</span>
+							</div>
+						</div>
+					</div>
+				</div>
+			</aside>
+
+			<!-- Main Content -->
+			<main class="flex-1 flex flex-col p-6 lg:p-8 bg-gray-100 lg:ml-80 transition-all duration-300 ease-in-out">
+				<!-- Header -->
+				<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+					<h1 id="appName" class="text-3xl font-bold text-gray-900 mb-2">Fleet Monitoring Dashboard</h1>
+					<p id="appDescription" class="text-gray-600">...</p>
+					<div class="mt-2 text-sm text-gray-500">
+						<span><i class="fas fa-calendar-alt"></i> Last Updated: <span id="lastUpdate">-</span></span>
+						<span class="ml-4"><i class="fas fa-chart-bar"></i> Total Units: <span id="totalUnits">0</span></span>
+					</div>
+				</div>
+
+				<!-- Summary Information -->
+				<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+					<h2 class="text-xl font-bold text-gray-900 mb-4"><i class="fas fa-chart-line"></i> Payload Analysis</h2>
+					<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4" id="summary-cards-container">
+						<div
+							class="summary-card group bg-blue-100 text-blue-900 p-4 rounded-lg transition transform hover:-translate-y-0.5 hover:shadow-lg relative overflow-hidden flex flex-col justify-between items-start min-h-[120px] h-full">
+							<i
+								class="fas fa-weight-hanging text-blue-200 absolute -right-2.5 -bottom-2.5 text-8xl opacity-50 -rotate-12 transition-all duration-300 ease-in-out group-hover:-rotate-6 group-hover:scale-110 group-hover:opacity-70"></i>
+							<h3 class="text-sm font-medium text-blue-600 mb-1">Rata-rata Payload</h3>
+							<div class="flex flex-col items-start mt-auto">
+								<p id="avgPayload" class="text-2xl font-bold">0</p>
+								<p class="text-xs text-blue-500">ton</p>
+							</div>
+						</div>
+						<div
+							class="summary-card group bg-purple-100 text-purple-900 p-4 rounded-lg transition transform hover:-translate-y-0.5 hover:shadow-lg relative overflow-hidden flex flex-col justify-between items-start min-h-[120px] h-full">
+							<i
+								class="fas fa-arrow-up-right-dots text-purple-200 absolute -right-2.5 -bottom-2.5 text-8xl opacity-50 -rotate-12 transition-all duration-300 ease-in-out group-hover:-rotate-6 group-hover:scale-110 group-hover:opacity-70"></i>
+							<h3 class="text-sm font-medium text-purple-600 mb-1">Payload Maksimum</h3>
+							<div class="flex flex-col items-start mt-auto">
+								<p id="maxPayload" class="text-2xl font-bold">0</p>
+								<p class="text-xs text-purple-500">ton</p>
+							</div>
+						</div>
+						<div
+							class="summary-card group bg-indigo-100 text-indigo-900 p-4 rounded-lg transition transform hover:-translate-y-0.5 hover:shadow-lg relative overflow-hidden flex flex-col justify-between items-start min-h-[120px] h-full">
+							<i
+								class="fas fa-arrow-down-wide-short text-indigo-200 absolute -right-2.5 -bottom-2.5 text-8xl opacity-50 -rotate-12 transition-all duration-300 ease-in-out group-hover:-rotate-6 group-hover:scale-110 group-hover:opacity-70"></i>
+							<h3 class="text-sm font-medium text-indigo-600 mb-1">Payload Minimum</h3>
+							<div class="flex flex-col items-start mt-auto">
+								<p id="minPayload" class="text-2xl font-bold">0</p>
+								<p class="text-xs text-indigo-500">ton</p>
+							</div>
+						</div>
+						<div
+							class="summary-card group bg-yellow-100 text-yellow-900 p-4 rounded-lg transition transform hover:-translate-y-0.5 hover:shadow-lg relative overflow-hidden flex flex-col justify-between items-start min-h-[120px] h-full">
+							<i
+								class="fas fa-exclamation-triangle text-yellow-200 absolute -right-2.5 -bottom-2.5 text-8xl opacity-50 -rotate-12 transition-all duration-300 ease-in-out group-hover:-rotate-6 group-hover:scale-110 group-hover:opacity-70"></i>
+							<h3 class="text-sm font-medium text-yellow-600 mb-1">Payload Under</h3>
+							<div class="flex flex-col items-start mt-auto">
+								<p id="underCount" class="text-2xl font-bold">0</p>
+								<p class="text-xs text-yellow-500">unit</p>
+							</div>
+						</div>
+						<div
+							class="summary-card group bg-green-100 text-green-900 p-4 rounded-lg transition transform hover:-translate-y-0.5 hover:shadow-lg relative overflow-hidden flex flex-col justify-between items-start min-h-[120px] h-full">
+							<i
+								class="fas fa-check-circle text-green-200 absolute -right-2.5 -bottom-2.5 text-8xl opacity-50 -rotate-12 transition-all duration-300 ease-in-out group-hover:-rotate-6 group-hover:scale-110 group-hover:opacity-70"></i>
+							<h3 class="text-sm font-medium text-green-600 mb-1">Payload Optimal</h3>
+							<div class="flex flex-col items-start mt-auto">
+								<p id="optimalCount" class="text-2xl font-bold">0</p>
+								<p class="text-xs text-green-500">unit</p>
+							</div>
+						</div>
+						<div
+							class="summary-card group bg-red-100 text-red-900 p-4 rounded-lg transition transform hover:-translate-y-0.5 hover:shadow-lg relative overflow-hidden flex flex-col justify-between items-start min-h-[120px] h-full">
+							<i
+								class="fas fa-exclamation-circle text-red-200 absolute -right-2.5 -bottom-2.5 text-8xl opacity-50 -rotate-12 transition-all duration-300 ease-in-out group-hover:-rotate-6 group-hover:scale-110 group-hover:opacity-70"></i>
+							<h3 class="text-sm font-medium text-red-600 mb-1">Payload Overload</h3>
+							<div class="flex flex-col items-start mt-auto">
+								<p id="overloadCount" class="text-2xl font-bold">0</p>
+								<p class="text-xs text-red-500">unit</p>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Data Table -->
+				<div class="bg-white rounded-lg shadow-sm overflow-hidden flex-1">
+					<div class="px-6 py-4 border-b border-gray-200">
+						<h2 class="text-xl font-bold text-gray-900"><i class="fas fa-truck"></i> Fleet Data</h2>
+						<p class="text-sm text-gray-600 mt-1">List of excavators and dump trucks with payload status</p>
+					</div>
+					<div class="overflow-x-auto table-container h-full">
+						<table class="min-w-full divide-y divide-gray-200">
+							<thead class="bg-gray-100 sticky top-0">
+								<tr>
+									<th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Fleet</th>
+									<th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Payload</th>
+									<th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Status</th>
+									<th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Nama Pengawas</th>
+								</tr>
+							</thead>
+							<tbody id="dataTable" class="bg-white divide-y divide-gray-200">
+								<!-- Data will be populated by JavaScript -->
+							</tbody>
+						</table>
+					</div>
+				</div>
+
+				<!-- Template for Data Table Row -->
+				<template id="data-row-template">
+					<tr data-eqnum="">
+						<td class="px-6 py-4 whitespace-nowrap text-sm font-medium cursor-pointer hover:bg-blue-100 transition-colors" data-field="eqNum"></td>
+						<td class="px-6 py-4 whitespace-nowrap text-sm cursor-pointer hover:bg-blue-100 transition-colors" data-field="payload"></td>
+						<td class="px-6 py-4 whitespace-nowrap cursor-pointer hover:bg-blue-100 transition-colors" data-field="status">
+							<span></span>
+						</td>
+						<td class="px-6 py-4 whitespace-nowrap text-sm" data-field="supervisor"></td>
+					</tr>
+				</template>
+
+				<!-- Empty State -->
+				<div id="emptyState" class="text-center py-12 hidden">
+					<div class="text-gray-400 text-6xl mb-4"><i class="fas fa-chart-bar"></i></div>
+					<h3 class="text-lg font-medium text-gray-900 mb-2">No Data Available</h3>
+					<p class="text-gray-500 mb-4">Start by importing data from a PDF</p>
+					<button onclick="dashboard.simulateImportPDF()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors transition transform hover:-translate-y-0.5 hover:shadow-lg">
+						Import PDF Data
+					</button>
+				</div>
+			</main>
+		</div>
+
+		<!-- Modals -->
+		<!-- Modal for editing supervisor name -->
+		<div id="supervisorModal" class="fixed inset-0 hidden items-center justify-center z-50 backdrop-blur-sm bg-black/40">
+			<div class="bg-white rounded-lg p-6 w-96 mx-4 transition transform hover:-translate-y-0.5 hover:shadow-lg">
+				<h3 id="supervisorModalTitle" class="text-lg font-medium text-gray-900 mb-4"><i class="fas fa-edit"></i> <span>Edit Supervisor</span></h3>
+				<div class="mb-3 text-sm text-gray-600" data-text-key="editSupervisorNote">
+					<!-- This text will be replaced by config.js -->
+				</div>
+				<input
+					type="text"
+					id="supervisorNameInput"
+					placeholder="Masukkan nama pengawas..."
+					class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-200 mb-4" />
+				<div class="flex justify-end space-x-3">
+					<button id="cancelSupervisor" class="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium transition-colors" data-text-key="btnCancel">Batal</button>
+					<button id="saveSupervisor" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors" data-text-key="btnSave">Simpan</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Modal for PDF Import preview -->
+		<div id="pdfPreviewModal" class="fixed inset-0 hidden flex items-center justify-center z-50 backdrop-blur-sm bg-black/40">
+			<div class="bg-white rounded-lg p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto shadow-2xl transition transform hover:-translate-y-0.5 hover:shadow-lg">
+				<h3 class="text-lg font-medium text-gray-900 mb-4"><i class="fas fa-file-pdf"></i> <span data-text-key="pdfPreviewTitle">PDF Import Preview</span></h3>
+
+				<!-- Decimal Format Selector -->
+				<div id="decimalFormatSelector" class="mb-4 p-4 bg-gray-50 rounded-lg border">
+					<h4 class="text-sm font-semibold text-gray-800 mb-3"><i class="fas fa-cog"></i> <span data-text-key="decimalFormatTitle">Format Angka di PDF</span></h4>
+					<div class="space-y-2">
+						<label class="flex items-center space-x-3">
+							<input type="radio" name="decimal_format" value="dot" checked class="text-blue-600 focus:ring-blue-500" />
+							<span class="text-sm text-gray-700">
+								<strong>Desimal Titik</strong> (contoh: 1,234.56)
+								<span class="text-xs text-gray-500 block">Koma sebagai pemisah ribuan, titik sebagai desimal</span>
+							</span>
+						</label>
+						<label class="flex items-center space-x-3">
+							<input type="radio" name="decimal_format" value="comma" class="text-blue-600 focus:ring-blue-500" />
+							<span class="text-sm text-gray-700">
+								<strong>Desimal Koma</strong> (contoh: 1.234,56)
+								<span class="text-xs text-gray-500 block">Titik sebagai pemisah ribuan, koma sebagai desimal</span>
+							</span>
+						</label>
+					</div>
+					<div class="mt-2 text-xs text-blue-600"><i class="fas fa-info-circle"></i> Pilih format yang sesuai dengan angka di file PDF Anda</div>
+				</div>
+
+				<!-- PDF Processing Status -->
+				<div id="pdfStatus" class="mb-4 p-4 bg-blue-50 rounded-lg">
+					<div class="flex items-center space-x-2">
+						<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+						<span class="text-blue-800">Processing PDF...</span>
+					</div>
+				</div>
+
+				<!-- PDF Results Summary -->
+				<div id="pdfSummary" class="mb-4 hidden">
+					<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+						<div class="bg-green-50 p-3 rounded-lg">
+							<h4 class="text-sm font-medium text-green-600">Valid Records</h4>
+							<p id="validCount" class="text-xl font-bold text-green-900">0</p>
+						</div>
+						<div class="bg-red-50 p-3 rounded-lg">
+							<h4 class="text-sm font-medium text-red-600">Invalid Records</h4>
+							<p id="invalidCount" class="text-xl font-bold text-red-900">0</p>
+						</div>
+						<div class="bg-blue-50 p-3 rounded-lg">
+							<h4 class="text-sm font-medium text-blue-600">Excavators</h4>
+							<p id="excavatorCountPreview" class="text-xl font-bold text-blue-900">0</p>
+						</div>
+						<div class="bg-purple-50 p-3 rounded-lg">
+							<h4 class="text-sm font-medium text-purple-600">Dump Trucks</h4>
+							<p id="dumpTruckCountPreview" class="text-xl font-bold text-purple-900">0</p>
+						</div>
+					</div>
+
+					<!-- Errors -->
+					<div id="pdfErrors" class="mb-4 hidden">
+						<h4 class="text-sm font-medium text-red-600 mb-2">Errors Found:</h4>
+						<div class="bg-red-50 p-3 rounded-lg max-h-32 overflow-y-auto">
+							<ul id="errorList" class="text-sm text-red-700 space-y-1"></ul>
+						</div>
+					</div>
+
+					<!-- Preview Table -->
+					<div class="overflow-x-auto max-h-64">
+						<table class="min-w-full divide-y divide-gray-200">
+							<thead class="bg-gray-50">
+								<tr>
+									<th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">EqNum</th>
+									<th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Payload</th>
+									<th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+								</tr>
+							</thead>
+							<tbody id="previewTableBody" class="bg-white divide-y divide-gray-200"></tbody>
+						</table>
+					</div>
+				</div>
+
+				<div class="flex justify-end space-x-3">
+					<button id="cancelPDF" class="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium transition-colors" data-text-key="btnCancel">Cancel</button>
+					<button id="importPDFData" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors hidden" data-text-key="btnImport">Import Data</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Hidden File Input for PDF Import -->
+		<input type="file" id="pdfFileInput" accept=".pdf" style="display: none" />
+
+		<!-- Confirmation Modal -->
+		<div id="confirmationModal" class="fixed inset-0 hidden items-center justify-center z-50 backdrop-blur-sm bg-black/40">
+			<div class="bg-white rounded-lg p-6 w-96 mx-4 shadow-2xl transition transform hover:-translate-y-0.5 hover:shadow-lg">
+				<h3 id="confirmationModalTitle" class="text-lg font-medium text-gray-900 mb-4"><i class="fas fa-question-circle text-yellow-500"></i> <span data-text-key="confirmationModalTitle">Confirmation</span></h3>
+				<p id="confirmationModalMessage" class="text-sm text-gray-600 mb-6">Are you sure?</p>
+				<div class="flex justify-end space-x-3">
+					<button id="confirmCancel" class="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium transition-colors" data-text-key="btnCancel">Cancel</button>
+					<button id="confirmAccept" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors" data-text-key="btnConfirm">Confirm</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Scripts -->
+		<script src="/js/config.js"></script>
+		<script src="/js/utils.js"></script>
+		<script src="/js/pdf-text-extractor.js"></script>
+		<script src="/js/dashboard.js"></script>
+	</body>
+</html>
