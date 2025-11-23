@@ -2242,10 +2242,15 @@ class FleetDashboard {
         }
 
         // Check if Web Share API is supported
-        if (!navigator.share && !navigator.canShare) {
-            this.showStatusMessage('Browser Anda tidak mendukung fitur berbagi. Silakan gunakan Export Excel atau Print sebagai gantinya.', 'warning');
-            return;
-        }
+        // Note: We check support but don't block - fallback to download if sharing unavailable
+        const webShareSupported = typeof navigator.share === 'function';
+        const canShareFiles = (file) => {
+            try {
+                return navigator.canShare && navigator.canShare({ files: [file] });
+            } catch {
+                return false;
+            }
+        };
 
         try {
             this.showLoadingState('Memproses PDF untuk dibagikan...');
@@ -2254,9 +2259,12 @@ class FleetDashboard {
             const caption = this.generateAutoCaption();
 
             // Step 1: Copy caption to clipboard FIRST (WhatsApp doesn't support caption with files)
+            // This ensures caption is available regardless of share outcome
+            let clipboardSuccess = false;
             try {
-                if (navigator.clipboard) {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
                     await navigator.clipboard.writeText(caption);
+                    clipboardSuccess = true;
                     this.logger.debugLog('Caption copied to clipboard');
                 }
             } catch (clipboardError) {
@@ -2374,38 +2382,62 @@ class FleetDashboard {
 
             this.hideLoadingState();
 
-            // Step 2: Share PDF file only (caption already copied to clipboard)
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                // Share only the file, not the caption (WhatsApp limitation)
-                await navigator.share({
-                    files: [file]
-                });
-                this.showStatusMessage('Caption telah disalin! Paste caption saat membagikan PDF.', 'success', 5000);
-            } else {
-                // Fallback: download PDF (caption already copied)
-                const url = window.URL.createObjectURL(pdfBlob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                window.URL.revokeObjectURL(url);
+            // Step 2: Attempt to share using Web Share API with graceful fallback
+            if (webShareSupported && canShareFiles(file)) {
+                // Browser supports file sharing - use Web Share API
+                try {
+                    await navigator.share({
+                        files: [file]
+                    });
 
-                this.showStatusMessage('Caption disalin ke clipboard! PDF akan diunduh. Paste caption saat membagikan.', 'success', 5000);
+                    if (clipboardSuccess) {
+                        this.showStatusMessage('PDF berhasil dibagikan! Caption sudah disalin ke clipboard.', 'success', 5000);
+                    } else {
+                        this.showStatusMessage('PDF berhasil dibagikan!', 'success', 5000);
+                    }
+                } catch (shareError) {
+                    if (shareError.name === 'AbortError') {
+                        this.showStatusMessage('Sharing dibatalkan', 'info');
+                    } else {
+                        // Share failed - fallback to download
+                        this.logger.debugWarn('Share failed, falling back to download:', shareError);
+                        this.downloadPdfFallback(pdfBlob, filename);
+                        if (clipboardSuccess) {
+                            this.showStatusMessage('Caption disalin ke clipboard! PDF diunduh karena sharing gagal.', 'success', 5000);
+                        } else {
+                            this.showStatusMessage('PDF berhasil diunduh.', 'success', 5000);
+                        }
+                    }
+                }
+            } else {
+                // Browser doesn't support file sharing - fallback to download
+                this.downloadPdfFallback(pdfBlob, filename);
+                if (clipboardSuccess) {
+                    this.showStatusMessage('Caption disalin ke clipboard! PDF diunduh (browser tidak mendukung share file).', 'success', 5000);
+                } else {
+                    this.showStatusMessage('PDF berhasil diunduh.', 'success', 5000);
+                }
             }
 
         } catch (error) {
             this.hideLoadingState();
-
-            // Handle user cancellation
-            if (error.name === 'AbortError') {
-                this.showStatusMessage('Sharing dibatalkan', 'info');
-            } else {
-                this.logger.debugError('Share error:', error);
-                this.showStatusMessage('Gagal membagikan dashboard: ' + error.message, 'error');
-            }
+            this.logger.debugError('Share error:', error);
+            this.showStatusMessage('Gagal memproses dashboard: ' + error.message, 'error');
         }
+    }
+
+    /**
+     * Fallback method to download PDF when sharing is not available
+     */
+    downloadPdfFallback(pdfBlob, filename) {
+        const url = window.URL.createObjectURL(pdfBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
     }
 }
 
