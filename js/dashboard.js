@@ -2183,9 +2183,9 @@ class FleetDashboard {
         caption += `• Rata-rata Payload: ${avgPayload.toFixed(1)} ton\n`;
         caption += `• Payload Maksimum: ${maxPayload.toFixed(1)} ton\n`;
         caption += `• Payload Minimum: ${minPayload.toFixed(1)} ton\n`;
-        caption += `• Payload Under: ${underCount} unit\n`;
-        caption += `• Payload Optimal: ${optimalCount} unit\n`;
-        caption += `• Payload Overload: ${overloadCount} unit\n`;
+        caption += `• Payload Under: ${underCount} unit ⚠️\n`;
+        caption += `• Payload Optimal: ${optimalCount} unit ✅\n`;
+        caption += `• Payload Overload: ${overloadCount} unit 🔴\n`;
         caption += '\n';
 
         // Section 2: List of Payload HD per fleet and supervisor
@@ -2219,7 +2219,8 @@ class FleetDashboard {
             dumpTrucks.forEach(dt => {
                 const status = this.getPayloadStatus(dt.payload, dt.statusOverride);
                 const statusText = this.getStatusText(status);
-                caption += `  • ${dt.eqNum}: ${dt.payload.toFixed(1)} ton (${statusText})\n`;
+                const statusEmoji = status === 'optimal' ? '✅' : status === 'overload' ? '🔴' : '⚠️';
+                caption += `  • ${dt.eqNum}: ${dt.payload.toFixed(1)} ton (${statusText}) ${statusEmoji}\n`;
             });
             caption += '\n';
         });
