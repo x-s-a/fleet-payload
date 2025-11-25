@@ -115,5 +115,44 @@ class Logger {
     }
 }
 
-// Expose the Logger class to the global window object
+/**
+ * Platform Detection Utilities
+ */
+class PlatformDetector {
+    /**
+     * Detects if the current device is a mobile device
+     * @returns {boolean} True if mobile device
+     */
+    static isMobileDevice() {
+        const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+
+        // Check for mobile patterns in user agent
+        const mobileRegex = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|tablet/i;
+
+        // Also check for touch capability and screen size
+        const hasTouchScreen = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        const isSmallScreen = window.innerWidth <= 768;
+
+        return mobileRegex.test(userAgent) || (hasTouchScreen && isSmallScreen);
+    }
+
+    /**
+     * Detects if the current platform is desktop
+     * @returns {boolean} True if desktop
+     */
+    static isDesktop() {
+        return !this.isMobileDevice();
+    }
+
+    /**
+     * Gets the platform type
+     * @returns {string} 'mobile' or 'desktop'
+     */
+    static getPlatformType() {
+        return this.isMobileDevice() ? 'mobile' : 'desktop';
+    }
+}
+
+// Expose classes to the global window object
 window.Logger = Logger;
+window.PlatformDetector = PlatformDetector;

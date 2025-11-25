@@ -2174,22 +2174,23 @@ class FleetDashboard {
         }).replace(':', '.');
 
         // Build caption with header
-        let caption = '📊 *Laporan Fleet Payload Analysis Monitoring*\n';
-        caption += `📅 ${formattedDate}\n`;
+        let caption = '📊 *LAPORAN FLEET PAYLOAD MONITORING*\n';
+        caption += `📅 _${formattedDate}_\n`;
         caption += '━━━━━━━━━━━━━━━━━━━━\n\n';
 
         // Section 1: Dashboard statistics
-        caption += '📊 *Ringkasan Statistik:*\n';
-        caption += `• Rata-rata Payload: ${avgPayload.toFixed(1)} ton\n`;
-        caption += `• Payload Maksimum: ${maxPayload.toFixed(1)} ton\n`;
-        caption += `• Payload Minimum: ${minPayload.toFixed(1)} ton\n`;
-        caption += `• Payload Under: ${underCount} unit ⚠️\n`;
-        caption += `• Payload Optimal: ${optimalCount} unit ✅\n`;
-        caption += `• Payload Overload: ${overloadCount} unit 🔴\n`;
+        caption += '📈 *RINGKASAN STATISTIK*\n';
+        caption += `• Rata-rata Payload: *${avgPayload.toFixed(1)} ton*\n`;
+        caption += `• Payload Maksimum: *${maxPayload.toFixed(1)} ton*\n`;
+        caption += `• Payload Minimum: *${minPayload.toFixed(1)} ton*\n`;
         caption += '\n';
+        caption += `⚠️  Payload Under: *${underCount} unit*\n`;
+        caption += `✅ Payload Optimal: *${optimalCount} unit*\n`;
+        caption += `🔴 Payload Overload: *${overloadCount} unit*\n`;
+        caption += '\n━━━━━━━━━━━━━━━━━━━━\n\n';
 
         // Section 2: List of Payload HD per fleet and supervisor
-        caption += '🚜 *Detail Payload per Fleet:*\n\n';
+        caption += '🚜 *DETAIL PAYLOAD PER FLEET*\n\n';
 
         // Group data by excavator
         const groups = [];
@@ -2209,32 +2210,40 @@ class FleetDashboard {
             const excavator = group[0];
             const dumpTrucks = group.slice(1);
 
-            caption += `Fleet ${excavator.eqNum}`;
+            // Show excavator with payload
+            const excavatorStatus = this.getPayloadStatus(excavator.payload, excavator.statusOverride);
+            const excavatorStatusText = this.getStatusText(excavatorStatus);
+            const excavatorEmoji = excavatorStatus === 'optimal' ? '✅' : excavatorStatus === 'overload' ? '🔴' : '⚠️';
+
+            caption += `*${excavator.eqNum}* → *${excavator.payload.toFixed(1)} ton* ${excavatorEmoji}\n`;
             if (excavator.supervisor) {
-                caption += ` - Pengawas: ${excavator.supervisor}`;
+                caption += `_Pengawas: ${excavator.supervisor}_\n`;
             }
-            caption += '\n';
 
             // List dump trucks with payloads
-            dumpTrucks.forEach(dt => {
-                const status = this.getPayloadStatus(dt.payload, dt.statusOverride);
-                const statusText = this.getStatusText(status);
-                const statusEmoji = status === 'optimal' ? '✅' : status === 'overload' ? '🔴' : '⚠️';
-                caption += `  • ${dt.eqNum}: ${dt.payload.toFixed(1)} ton (${statusText}) ${statusEmoji}\n`;
-            });
+            if (dumpTrucks.length > 0) {
+                dumpTrucks.forEach(dt => {
+                    const status = this.getPayloadStatus(dt.payload, dt.statusOverride);
+                    const statusText = this.getStatusText(status);
+                    const statusEmoji = status === 'optimal' ? '✅' : status === 'overload' ? '🔴' : '⚠️';
+                    caption += `   • ${dt.eqNum}: *${dt.payload.toFixed(1)} ton* ${statusEmoji}\n`;
+                });
+            }
             caption += '\n';
         });
 
         // Footer
         caption += '━━━━━━━━━━━━━━━━━━━━\n';
-        caption += '📱 Fleet Payload Analysis Monitoring Dashboard\n';
+        caption += '📱 _Fleet Payload Analysis Monitoring Dashboard_\n';
 
         return caption;
     }
 
     /**
      * Share dashboard data as PDF with auto-generated caption
-     * WhatsApp approach: Copy caption to clipboard first, then share PDF file only
+     * Platform-aware approach:
+     * - Desktop: Downloads PDF and opens WhatsApp (Desktop/Web) with pre-filled caption
+     * - Mobile: Uses Web Share API for native sharing experience
      */
     async shareDashboard() {
         if (this.fleetData.length === 0) {
@@ -2383,40 +2392,64 @@ class FleetDashboard {
 
             this.hideLoadingState();
 
-            // Step 2: Attempt to share using Web Share API with graceful fallback
-            if (webShareSupported && canShareFiles(file)) {
-                // Browser supports file sharing - use Web Share API
-                try {
-                    await navigator.share({
-                        files: [file]
-                    });
+            // Step 2: Platform-specific sharing strategy
+            const isDesktop = window.PlatformDetector && window.PlatformDetector.isDesktop();
 
-                    if (clipboardSuccess) {
-                        this.showStatusMessage('PDF berhasil dibagikan! Caption sudah disalin ke clipboard.', 'success', 5000);
-                    } else {
-                        this.showStatusMessage('PDF berhasil dibagikan!', 'success', 5000);
-                    }
-                } catch (shareError) {
-                    if (shareError.name === 'AbortError') {
-                        this.showStatusMessage('Sharing dibatalkan', 'info');
-                    } else {
-                        // Share failed - fallback to download
-                        this.logger.debugWarn('Share failed, falling back to download:', shareError);
-                        this.downloadPdfFallback(pdfBlob, filename);
+            if (isDesktop) {
+                // DESKTOP FLOW: Download PDF + Open WhatsApp with caption
+                this.logger.debugLog('Desktop detected: Downloading PDF and opening WhatsApp');
+
+                // Download the PDF
+                this.downloadPdfFallback(pdfBlob, filename);
+
+                // Open WhatsApp (Desktop app or Web) with caption
+                this.openWhatsAppWithCaption(caption);
+
+                // Show user-friendly message
+                this.showStatusMessage(
+                    '📥 PDF downloaded! 💬 WhatsApp is opening with your caption ready. Just attach the PDF file.',
+                    'success',
+                    7000
+                );
+
+            } else {
+                // MOBILE FLOW: Use Web Share API (better UX on mobile)
+                this.logger.debugLog('Mobile detected: Using Web Share API');
+
+                if (webShareSupported && canShareFiles(file)) {
+                    // Browser supports file sharing - use Web Share API
+                    try {
+                        await navigator.share({
+                            files: [file]
+                        });
+
                         if (clipboardSuccess) {
-                            this.showStatusMessage('Caption disalin ke clipboard! PDF diunduh karena sharing gagal.', 'success', 5000);
+                            this.showStatusMessage('PDF berhasil dibagikan! Caption sudah disalin ke clipboard.', 'success', 5000);
                         } else {
-                            this.showStatusMessage('PDF berhasil diunduh.', 'success', 5000);
+                            this.showStatusMessage('PDF berhasil dibagikan!', 'success', 5000);
+                        }
+                    } catch (shareError) {
+                        if (shareError.name === 'AbortError') {
+                            this.showStatusMessage('Sharing dibatalkan', 'info');
+                        } else {
+                            // Share failed - fallback to download
+                            this.logger.debugWarn('Share failed, falling back to download:', shareError);
+                            this.downloadPdfFallback(pdfBlob, filename);
+                            if (clipboardSuccess) {
+                                this.showStatusMessage('Caption disalin ke clipboard! PDF diunduh karena sharing gagal.', 'success', 5000);
+                            } else {
+                                this.showStatusMessage('PDF berhasil diunduh.', 'success', 5000);
+                            }
                         }
                     }
-                }
-            } else {
-                // Browser doesn't support file sharing - fallback to download
-                this.downloadPdfFallback(pdfBlob, filename);
-                if (clipboardSuccess) {
-                    this.showStatusMessage('Caption disalin ke clipboard! PDF diunduh (browser tidak mendukung share file).', 'success', 5000);
                 } else {
-                    this.showStatusMessage('PDF berhasil diunduh.', 'success', 5000);
+                    // Browser doesn't support file sharing - fallback to download
+                    this.downloadPdfFallback(pdfBlob, filename);
+                    if (clipboardSuccess) {
+                        this.showStatusMessage('Caption disalin ke clipboard! PDF diunduh (browser tidak mendukung share file).', 'success', 5000);
+                    } else {
+                        this.showStatusMessage('PDF berhasil diunduh.', 'success', 5000);
+                    }
                 }
             }
 
@@ -2439,6 +2472,32 @@ class FleetDashboard {
         a.click();
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
+    }
+
+    /**
+     * Opens WhatsApp (Desktop app or Web) with pre-filled caption
+     * @param {string} caption - The message to pre-fill in WhatsApp
+     */
+    openWhatsAppWithCaption(caption) {
+        const encodedCaption = encodeURIComponent(caption);
+
+        // Try to open WhatsApp Desktop app first
+        const whatsappDesktopUrl = `whatsapp://send?text=${encodedCaption}`;
+        const whatsappWebUrl = `https://web.whatsapp.com/send?text=${encodedCaption}`;
+
+        // Attempt to open desktop app
+        const desktopWindow = window.open(whatsappDesktopUrl, '_blank');
+
+        // Fallback to WhatsApp Web after a short delay if desktop app doesn't respond
+        setTimeout(() => {
+            // If desktop app didn't open (window is null or closed immediately), open web version
+            if (!desktopWindow || desktopWindow.closed) {
+                window.open(whatsappWebUrl, '_blank');
+                this.logger.debugLog('Opened WhatsApp Web (desktop app not detected)');
+            } else {
+                this.logger.debugLog('Opened WhatsApp Desktop app');
+            }
+        }, 1000);
     }
 }
 

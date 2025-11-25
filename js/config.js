@@ -2,7 +2,7 @@
  * Fleet Dashboard Configuration
  * Centralized configuration for the entire application
  * @author www.asa.sh
- * @version 1.2.1
+ * @version 1.3.0
  */
 
 window.FleetConfig = {
@@ -21,7 +21,7 @@ window.FleetConfig = {
      */
     app: {
         name: 'Fleet Monitoring Dashboard',
-        version: '1.2.1',
+        version: '1.3.0',
         author: 'www.asa.sh',
         description: 'Fleet payload analysis monitoring'
     },
